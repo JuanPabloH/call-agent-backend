@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import Fastify from 'fastify';
 import Twilio from 'twilio';
 import WebSocket from 'ws';
-
+import { authenticateRequest } from './auth.js';
 // Load environment variables from .env file
 dotenv.config();
 
@@ -43,6 +43,20 @@ fastify.get('/', async (_, reply) => {
 // Initialize Twilio client
 const twilioClient = new Twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
+async function authMiddleware(request, reply) {
+  const { error, user } = await authenticateRequest(request);
+
+  if (error) {
+    return reply.code(error.status || 401).send({ error: 'No autorizado' });
+  }
+
+  request.user = user; // Adjuntar el usuario autenticado
+}
+
+fastify.get('/protected', { preHandler: authMiddleware }, async (request, reply) => {
+  reply.send({ message: 'Ruta protegida accedida correctamente', user: request.user });
+});
+
 // Helper function to get signed URL for authenticated conversations
 async function getSignedUrl() {
   try {
@@ -69,7 +83,7 @@ async function getSignedUrl() {
 }
 
 // Route to initiate outbound calls
-fastify.post('/outbound-call', async (request, reply) => {
+fastify.post('/outbound-call',{ preHandler: authMiddleware }, async (request, reply) => {
   const { number, prompt, first_message } = request.body;
 
   if (!number) {
