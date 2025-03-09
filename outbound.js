@@ -83,7 +83,7 @@ async function getSignedUrl() {
 }
 
 // Route to initiate outbound calls
-fastify.post('/outbound-call', async (request, reply) => {
+fastify.post('/outbound-call',{ preHandler: authMiddleware }, async (request, reply) => {
   const { number, prompt, first_message } = request.body;
 
   if (!number) {
